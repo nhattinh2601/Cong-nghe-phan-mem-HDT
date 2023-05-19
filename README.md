@@ -1,8 +1,8 @@
 # Cong-nghe-phan-mem-HDT 
 # Project: Service lưu trữ và xử lý video
 # Các bước chạy project
-- node install nodemon
-- node server.js
+- npm install nodemon
+- npm server.js
 # Authors:
 + 20110447 - Nguyễn Phước Công
 + 20110576 - Nguyễn Nhật Tính
