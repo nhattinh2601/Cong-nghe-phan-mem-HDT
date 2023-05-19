@@ -1,4 +1,4 @@
-#"# Cong-nghe-phan-mem-HDT" 
+# Cong-nghe-phan-mem-HDT 
 # Authors:
 + 20110447 - Nguyễn Phước Công
 + 20110576 - Nguyễn Nhật Tính
