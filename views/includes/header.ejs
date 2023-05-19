@@ -59,6 +59,7 @@
          <i class="fas fa-bars"></i>
          </button> &nbsp;&nbsp;
          <a class="navbar-brand mr-1" href="/"><img class="img-fluid" alt="" src="public/img/logo.png"></a>
+         <% if (isLogin) { %>   <a href="/manageAccount" id="mA" style="margin-left: 40px;"> Quản lý tài khoản</a>  <% } %>
          <!-- Navbar Search -->
          <form method="GET" action="/search" class="d-none d-md-inline-block form-inline ml-auto mr-0 mr-md-5 my-2 my-md-0 osahan-navbar-search">
             <div class="input-group">
@@ -126,6 +127,10 @@
 
                   if (response.status == "success") {
                      window.user = response.user;
+                     if(user.role ==1) {
+                        document.getElementById("mA").style.display = "none"
+                        document.getElementById("dltAdmin").style.display = "none"
+                     }
                      document.getElementById("username").innerHTML = user.first_name + " " + user.last_name;
                      document.getElementById("my-profile-picture").setAttribute("src", window.user.image);
                   }
@@ -141,10 +146,16 @@
          <!-- Sidebar -->
          <ul class="sidebar navbar-nav" id="left-sidebar">
 
-            <li class="nav-item <%= url == '/' ? 'active' : '' %>">
+            <li class="nav-item">
                <a class="nav-link" href="/">
                <i class="fas fa-fw fa-home"></i>
                <span>Home</span>
+               </a>
+            </li>
+            <li class="nav-item">
+               <a class="nav-link" href="/merge">
+               <i class="fas fa-fw fa-bars"></i>
+               <span>Tools</span>
                </a>
             </li>
          </ul>

@@ -1,4 +1,5 @@
 var express = require("express");
+const ffmpeg = require('fluent-ffmpeg')
 var app = express();
 var http = require("http").createServer(app);
 var socketIO = require("socket.io")(http);
@@ -16,6 +17,30 @@ var nodemailer = require("nodemailer");
 var mainURL = "http://localhost:3000";
 
 const DB_URL = "mongodb://127.0.0.1:27017";
+
+// upload video 
+const multer = require('multer')
+
+app.use(express.static('uploads'))
+
+const storage = multer.diskStorage({
+    destination:(req,file,cb) => {
+        cb(null,'uploads')
+    },
+    filename:(req,file,cb) => {
+        cb(null,file.originalname)
+    }
+})
+
+let upload = multer({
+    storage:storage
+})
+
+app.use(function(req,res,next){
+    res.setHeader("Cross-Origin-Opener-Policy","same-origin");
+    res.setHeader("Cross-Origin-Embedder-Policy","require-corp");
+    next();
+})
 
 
 app.use(bodyParser.json( { limit: "10000mb" } ));
@@ -59,7 +84,7 @@ http.listen(3000, function () {
 			console.log(error);
 			return;
 		}
-		database = client.db("youtube");
+		database = client.db("youtube2");
 
 		app.get("/", function (request, result) {
 
@@ -67,7 +92,8 @@ http.listen(3000, function () {
 				result.render("index", {
 					"isLogin": request.session.user_id ? true : false,
 					"videos": videos,
-					"url": request.url
+					"url": request.url,
+					
 				});
 			});
 		});
@@ -88,7 +114,7 @@ http.listen(3000, function () {
 			var last_name = request.body.last_name;
 			var email = request.body.email;
 			var password = request.body.password;
-
+			var role = 1;
 			if (first_name == "" || last_name == "" || email == "" || password == "") {
 				result.render("register", {
 					"error": "Please fill all fields",
@@ -96,7 +122,7 @@ http.listen(3000, function () {
 				});
 				return;
 			}
-
+			
 			database.collection("users").findOne({
 				"email": email
 			}, function (error1, user) {
@@ -112,6 +138,7 @@ http.listen(3000, function () {
 								"first_name": first_name,
 								"last_name": last_name,
 								"email": email,
+								"role":role,
 								"password": hash,
 								"subscribers": []
 							}, function (error2, data) {
@@ -121,7 +148,7 @@ http.listen(3000, function () {
 								}
 
 								result.render("register", {
-									"error": "Email verification is in premium version. Kindly read README.txt to get full version.",
+									
 									"message": "Signed up successfully. You can login now."
 								});
 							});
@@ -206,6 +233,45 @@ http.listen(3000, function () {
 				result.redirect("/login");
 			}
 		});
+		
+		app.post("/cut_video", function (request, result) {
+			database.collection("videos").findOne({
+				$and: [{
+					"watch": parseInt(request.query.v)
+				}]
+			}, function (error1, video) {
+				if (video == null) {
+					result.render("404", {
+						"isLogin": true,
+						"message": "Sorry, you do not own this video."
+					});
+				} else {											
+					let Path =  video.filePath;
+					var currentTime = new Date().getTime();
+					var startTime = request.body.startTime;
+					console.log(startTime);
+					
+					var duration = parseInt(request.body.duration);
+					console.log(duration);
+					ffmpeg({source:Path})
+					.setStartTime(startTime)
+					.duration(duration)
+					.on('start',function(commandLine){
+						console.log("Processing started")
+					})
+					.on('error',function(err){
+						console.log("error taken place", + err)
+					})
+					.on('end',function(err){
+						console.log("processing done")
+					})
+					.saveToFile("./public/result/"+currentTime+".mp4")
+					result.redirect("/watch?v="+video.watch );	
+															
+				}
+			});
+		});
+
 
 		app.get("/get_user", function (request, result) {
 			if (request.session.user_id) {
@@ -322,6 +388,34 @@ http.listen(3000, function () {
 					"message": "Please login to perform this action."
 				});
 			}
+		});
+		
+		app.get("/remove_audio", function (request, result) {
+			database.collection("videos").findOne({
+				$and: [{
+					"watch": parseInt(request.query.v)
+				}]
+			}, function (error1, video) {
+				if (video == null) {
+					result.render("404", {
+						"isLogin": true,
+						"message": "Sorry, you do not own this video."
+					});
+				} else {											
+					let Path =  video.filePath;
+					var currentTime = new Date().getTime();
+					ffmpeg({source:Path})
+					.on('end',() => {
+						console.log("Processing is done")
+					})
+					.on('error',() => {
+						console.log("Some error taken place")
+					})
+					.noAudio()
+					.saveToFile("./public/result/"+currentTime+".mp4")
+					result.redirect("/watch?v="+video.watch );												
+				}
+			});
 		});
 
 		app.post("/save-video", function (request, result) {
@@ -444,7 +538,7 @@ http.listen(3000, function () {
 										"minutes": video.minutes,
 										"seconds": video.seconds,
 										"hours": video.hours,
-										"title": video.title,
+										"title": video.title + "_dup"+currentTime,
 										"description": video.description,
 										"tags": video.tags,
 										"category": video.category,
@@ -954,8 +1048,144 @@ http.listen(3000, function () {
 				result.redirect("/login");
 			}
 		});
+		// app.get("/manageAccount", function (request, result) {
+		// 	if (request.session.user_id) {
+		// 		getUser(request.session.user_id, function (user) {
+		// 			result.render("manageAccount", {
+		// 				"isLogin": true,
+		// 				"user": user,
+		// 				"url": request.url,
+					
+		// 			});
+		// 		});
+		// 	} else {
+		// 		result.redirect("/login");
+		// 	}
+		// });
+		app.get("/manageAccount", function (request, result) {
+
+			database.collection("users").find({}).sort({"createdAt": -1}).toArray(function (error1, users) {
+				result.render("manageAccount", {
+					"isLogin": request.session.user_id ? true : false,
+					"users": users,
+					"url": request.url,
+					
+				});
+			});
+		});
+
+		app.post("/registermA", function (request, result) {
+			var first_name = request.body.first_name;
+			var last_name = request.body.last_name;
+			var email = request.body.email;
+			var password = request.body.password;
+			var role = parseInt(request.body.role);
+			if (first_name == "" || last_name == "" || email == "" || password == "") {
+				
+					result.redirect("/manageAccount" );
+					
+				
+				return;
+			}
+			
+			database.collection("users").findOne({
+				"email": email
+			}, function (error1, user) {
+				if (error1) {
+					console.log(error1);
+					return;
+				}
+
+				if (user == null) {
+					bcrypt.genSalt(10, function(err, salt) {
+    					bcrypt.hash(password, salt, async function(err, hash) {
+    						database.collection("users").insertOne({
+								"first_name": first_name,
+								"last_name": last_name,
+								"email": email,
+								"role":role,
+								"password": hash,
+								"subscribers": []
+							}, function (error2, data) {
+								if (error2) {
+									console.log(error2);
+									return;
+								}
+
+								result.redirect("/manageAccount" );
+							});
+    					})
+    				})
+				} else {
+					result.redirect("/manageAccount" );
+					
+				}
+			});
+		});
+		app.get('/delete-user',function(req,res,next){
+			database.collection("users").deleteOne(req.params.id,(error,data)=> {
+				res.redirect('/manageAccount');
+			})
+		})
+		app.get('/delete-video-ad',function(req,res,next){
+			database.collection("videos").deleteOne(req.params.id,(error,data)=> {
+				res.redirect('/');
+			})
+		})
+		app.get("/merge", function (request, result) {			
+					result.render("tools", {	
+						"isLogin": false,
+						"url": request.url					
+					});				
+		});
+
+		app.get("/tool_cut_video", function (request, result) {			
+					result.render("tool-cut-video", {
+						"isLogin": false,						
+						"url": request.url,
+					
+					});				
+		});
+
+		app.get("/tool_compress_video", function (request, result) {			
+					result.render("tool-compress-video", {
+						"isLogin": false,
+						"url": request.url,					
+					});				
+		});
+
+		app.get("/tool_capture", function (request, result) {			
+			result.render("tool-capture", {
+				"isLogin": false,
+				"url": request.url,					
+			});				
 
 		
+			
+			
+			
+					
+			
+			app.post('/tool-capture-video',upload.single('video'),(req,res) => {
+				console.log(req.file.path)
+				const time = req.body.time
+			
+				const outputPath = Date.now() + "thumbnail.png"
+			
+				ffmpeg(req.file.path)
+				.seekInput(time)
+				.frames(1)
+				.output(outputPath)
+				.on('end',() => {
+					res.download(outputPath)
+				})
+				.run()
+
+				
+				
+			})
+});
+
 
 	}); // end of Mongo DB
 }); //  end of HTTP.listen
