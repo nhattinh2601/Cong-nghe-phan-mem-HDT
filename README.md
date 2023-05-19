@@ -1,5 +1,6 @@
 # Cong-nghe-phan-mem-HDT 
 # Project: Service lưu trữ và xử lý video
+# Cần có MongoDB
 # Các bước chạy project
 - npm install nodemon
 - npm server.js
