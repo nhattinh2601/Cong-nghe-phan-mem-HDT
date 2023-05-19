@@ -85,7 +85,7 @@ http.listen(3000, function () {
 			console.log(error);
 			return;
 		}
-		database = client.db("youtube2");
+		database = client.db("youtube");
 
 		app.get("/", function (request, result) {
 
